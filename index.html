@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Language Translator</title>
+    <style>
+        :root {
+            --primary-pink: #ff4d6d;
+            --soft-rose: #ffccd5;
+            --deep-heart: #c9184a;
+            --glass: rgba(255, 255, 255, 0.85);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body::before {
+            content: "❤";
+            position: fixed;
+            top: -10%;
+            left: 10%;
+            font-size: 2rem;
+            color: rgba(255, 255, 255, 0.3);
+            animation: float 10s infinite linear;
+        }
+
+        @keyframes float {
+            to { transform: translateY(110vh) rotate(360deg); }
+        }
+
+        .login-card {
+            background: var(--glass);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        h2 {
+            color: var(--deep-heart);
+            margin-bottom: 1.5rem;
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 80%;
+            padding: 12px 15px;
+            border: 2px solid var(--soft-rose);
+            border-radius: 25px;
+            outline: none;
+            font-size: 1rem;
+            transition: 0.3s;
+            text-align: center;
+        }
+
+        input:focus {
+            border-color: var(--primary-pink);
+            box-shadow: 0 0 8px rgba(255, 77, 109, 0.2);
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            word-wrap: break-word;
+            min-height: 20px;
+            color: var(--deep-heart);
+            font-weight: bold;
+            display: none;
+        }
+
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            background: var(--deep-heart);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>OUR LANGUAGE TRANSLATOR</h2>
+    <div class="input-group">
+        <input type="text" id="mainInput" placeholder="Text+Shift or Numbers Shift" autocomplete="off">
+        <p class="hint">Press <b>Enter</b> to Translate & Copy</p>
+    </div>
+    <div id="result"></div>
+</div>
+
+<div id="toast" class="copy-toast">Copied to clipboard! ❤</div>
+
+<script>
+    const mainInput = document.getElementById('mainInput');
+    const resultDiv = document.getElementById('result');
+    const toast = document.getElementById('toast');
+
+    mainInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            processInput(this.value);
+        }
+    });
+
+    function processInput(input) {
+        let finalResult = "";
+        const val = input.trim();
+        if(!val) return;
+
+        // Pattern to detect numeric decoding (ends with space and a number)
+        const decodePattern = /^([0-9, \-]+)\s+([-+]?\d+)$/;
+        const decodeMatch = val.match(decodePattern);
+
+        if (decodeMatch) {
+            // DECODING
+            const numberPart = decodeMatch[1].trim();
+            const shift = parseInt(decodeMatch[2]);
+            const words = numberPart.split(/\s+/);
+
+            const decodedWords = words.map(word => {
+                return word.split(',').filter(n => n !== "").map(numStr => {
+                    const n = parseInt(numStr);
+                    let pos = n - shift;
+                    while (pos <= 0) pos += 26;
+                    while (pos > 26) pos -= 26;
+                    return String.fromCharCode(pos + 64);
+                }).join('');
+            });
+            finalResult = decodedWords.join(' ');
+        } else {
+            // ENCODING
+            let text = val;
+            let shift = 0;
+
+            const encodeMatch = val.match(/(.+)([+-])(\d+)$/);
+            if (encodeMatch) {
+                text = encodeMatch[1].trim();
+                const sign = encodeMatch[2];
+                const shiftAmt = parseInt(encodeMatch[3]);
+                shift = (sign === '-') ? -shiftAmt : shiftAmt;
+            }
+
+            const words = text.split(/\s+/);
+            const encodedWords = words.map(word => {
+                return word.split('').map(char => {
+                    const code = char.toUpperCase().charCodeAt(0);
+                    if (code >= 65 && code <= 90) {
+                        return (code - 64) + shift;
+                    }
+                    return null; // Ignore non-letters for numeric conversion
+                }).filter(n => n !== null).join(',');
+            });
+            finalResult = encodedWords.join(' ') + " " + shift;
+        }
+
+        displayAndCopy(finalResult);
+    }
+
+    function displayAndCopy(text) {
+        resultDiv.innerText = text;
+        resultDiv.style.display = 'block';
+        navigator.clipboard.writeText(text).then(() => {
+            showToast();
+        });
+    }
+
+    function showToast() {
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>
